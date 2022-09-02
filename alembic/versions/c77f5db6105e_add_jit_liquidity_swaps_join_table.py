@@ -1,23 +1,22 @@
-"""add_swap_jit_liquidity_join_table
+"""add_jit_liquidity_swaps_join_table
 
-Revision ID: ceb5976b37dd
-Revises: 5c5375de15fd
-Create Date: 2022-04-19 18:34:26.332094
+Revision ID: c77f5db6105e
+Revises: a46974a623b3
+Create Date: 2022-05-10 12:37:25.275799
 
 """
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = 'ceb5976b37dd'
-down_revision = '5c5375de15fd'
+revision = "c77f5db6105e"
+down_revision = "a46974a623b3"
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
-    sa.create_table(
+    op.create_table(
         "jit_liquidity_swaps",
         sa.Column("created_at", sa.TIMESTAMP, server_default=sa.func.now()),
         sa.Column("jit_liquidity_id", sa.String(1024), primary_key=True),
@@ -26,11 +25,6 @@ def upgrade():
         sa.ForeignKeyConstraint(
             ["jit_liquidity_id"], ["jit_liquidity.id"], ondelete="CASCADE"
         ),
-        sa.ForeignKeyConstraint(
-            ["swap_transaction_hash", "swap_trace_address"],
-            ["swaps.transaction_hash", "swaps.trace_address"],
-            ondelete="CASCADE",
-        )
     )
 
 
