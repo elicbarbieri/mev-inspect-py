@@ -27,6 +27,17 @@ mev-inspect-py is built to run on kubernetes locally and in production.
 
 ### Set up
 
+### Create .env File & Populate 
+```text
+RPC_URL="http://pokt.network/...."
+POSTGRES_USER=<insert username>
+POSTGRES_PASSWORD=
+POSTGRES_HOST=
+## Optionally Add TraceDB Database ##
+TRACE_DB_USER=
+TRACE_DB_PASSWORD=
+TRACE_DB_HOST=
+```
 Create a new cluster with:
 
 ```

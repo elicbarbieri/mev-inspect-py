@@ -1,12 +1,8 @@
 load("ext://helm_remote", "helm_remote")
 load("ext://secret", "secret_from_dict")
 load("ext://configmap", "configmap_from_dict")
-
-helm_remote("postgresql",
-            repo_name="bitnami",
-            repo_url="https://charts.bitnami.com/bitnami",
-            set=["auth.postgresPassword=password", "auth.database=mev_inspect"],
-)
+load('ext://dotenv', 'dotenv')
+dotenv()
 
 helm_remote("redis",
             repo_name="bitnami",
@@ -21,19 +17,6 @@ k8s_yaml(configmap_from_dict("mev-inspect-rpc", inputs = {
 k8s_yaml(configmap_from_dict("mev-inspect-listener-healthcheck", inputs = {
     "url" : os.getenv("LISTENER_HEALTHCHECK_URL", default=""),
 }))
-
-k8s_yaml(secret_from_dict("mev-inspect-db-credentials", inputs = {
-    "username" : "postgres",
-    "password": "password",
-    "host": "postgresql",
-}))
-
-# if using https://github.com/taarushv/trace-db
-# k8s_yaml(secret_from_dict("trace-db-credentials", inputs = {
-#     "username" : "username",
-#     "password": "password",
-#     "host": "trace-db-postgresql",
-# }))
 
 docker_build("mev-inspect-py", ".",
     live_update=[
@@ -76,23 +59,18 @@ k8s_yaml(helm(
 
 k8s_resource(
     workload="mev-inspect",
-    resource_deps=["postgresql", "redis-master"],
+    resource_deps=["redis-master"],
 )
 
 k8s_resource(
     workload="mev-inspect-workers",
-    resource_deps=["postgresql", "redis-master"],
+    resource_deps=["redis-master"],
 )
 
 # uncomment to enable price monitor
 # k8s_yaml(helm('./k8s/mev-inspect-prices', name='mev-inspect-prices'))
-# k8s_resource(workload="mev-inspect-prices", resource_deps=["postgresql"])
+# k8s_resource(workload="mev-inspect-prices", resource_deps=[])
 
-local_resource(
-    'pg-port-forward',
-    serve_cmd='kubectl port-forward --namespace default svc/postgresql 5432:5432',
-    resource_deps=["postgresql"]
-)
 
 # if using local S3 exports
 #k8s_yaml(secret_from_dict("mev-inspect-export", inputs = {

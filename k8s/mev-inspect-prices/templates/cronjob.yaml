@@ -16,20 +16,4 @@ spec:
               args:
               - run
               - fetch-all-prices
-              env:
-              - name: POSTGRES_HOST
-                valueFrom:
-                  secretKeyRef:
-                    name: mev-inspect-db-credentials
-                    key: host
-              - name: POSTGRES_USER
-                valueFrom:
-                  secretKeyRef:
-                    name: mev-inspect-db-credentials
-                    key: username
-              - name: POSTGRES_PASSWORD
-                valueFrom:
-                  secretKeyRef:
-                    name: mev-inspect-db-credentials
-                    key: password
           restartPolicy: Never

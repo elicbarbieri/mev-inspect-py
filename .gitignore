@@ -21,6 +21,7 @@ cache
 .helm
 
 # env
+.env
 .envrc
 
 # pycharm
