@@ -42,11 +42,44 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           env:
+          - name: POSTGRES_HOST
+            valueFrom:
+              secretKeyRef:
+                name: mev-inspect-db-credentials
+                key: host
+          - name: POSTGRES_USER
+            valueFrom:
+              secretKeyRef:
+                name: mev-inspect-db-credentials
+                key: username
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mev-inspect-db-credentials
+                key: password
           - name: REDIS_PASSWORD
             valueFrom:
               secretKeyRef:
                 name: redis
                 key: redis-password
+          - name: TRACE_DB_HOST
+            valueFrom:
+              secretKeyRef:
+                name: trace-db-credentials
+                key: host
+                optional: true
+          - name: TRACE_DB_USER
+            valueFrom:
+              secretKeyRef:
+                name: trace-db-credentials
+                key: username
+                optional: true
+          - name: TRACE_DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: trace-db-credentials
+                key: password
+                optional: true
           - name: RPC_URL
             valueFrom:
               configMapKeyRef:

@@ -10,6 +10,19 @@ helm_remote("redis",
             set=["global.redis.password=password"],
 )
 
+k8s_yaml(secret_from_dict("mev-inspect-db-credentials", inputs = {
+    "username" : os.environ["POSTGRES_USER"],
+    "password": os.environ["POSTGRES_PASSWORD"],
+    "host": os.environ["POSTGRES_HOST"],
+}))
+
+# if using https://github.com/taarushv/trace-db
+# k8s_yaml(secret_from_dict("trace-db-credentials", inputs = {
+#    "username" : os.environ["TRACE_DB_USER"],
+#    "password": os.environ["TRACE_DB_PASSWORD"],
+#    "host": os.environ["TRACE_DB_HOST"],
+# }))
+
 k8s_yaml(configmap_from_dict("mev-inspect-rpc", inputs = {
     "url" : os.environ["RPC_URL"],
 }))
