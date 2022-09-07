@@ -1,11 +1,10 @@
 import asyncio
 import logging
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from sqlalchemy import orm
 from web3 import Web3
 
-from mev_inspect.fees import fetch_base_fee_per_gas
 from mev_inspect.schemas.blocks import Block
 from mev_inspect.schemas.receipts import Receipt
 from mev_inspect.schemas.traces import Trace, TraceType
@@ -28,11 +27,10 @@ async def create_from_block_number(
     block_number: int,
     trace_db_session: Optional[orm.Session],
 ) -> Block:
-    block_timestamp, receipts, traces, base_fee_per_gas = await asyncio.gather(
-        _find_or_fetch_block_timestamp(w3, block_number, trace_db_session),
+    (block_timestamp, base_fee), receipts, traces = await asyncio.gather(
+        _find_or_fetch_block(w3, block_number, trace_db_session),
         _find_or_fetch_block_receipts(w3, block_number, trace_db_session),
         _find_or_fetch_block_traces(w3, block_number, trace_db_session),
-        _find_or_fetch_base_fee_per_gas(w3, block_number, trace_db_session),
     )
 
     miner_address = _get_miner_address_from_traces(traces)
@@ -41,23 +39,25 @@ async def create_from_block_number(
         block_number=block_number,
         block_timestamp=block_timestamp,
         miner=miner_address,
-        base_fee_per_gas=base_fee_per_gas,
+        base_fee_per_gas=base_fee,
         traces=traces,
         receipts=receipts,
     )
 
 
-async def _find_or_fetch_block_timestamp(
+async def _find_or_fetch_block(
     w3,
     block_number: int,
     trace_db_session: Optional[orm.Session],
-) -> int:
+) -> Tuple[int, int]:
     if trace_db_session is not None:
-        existing_block_timestamp = _find_block_timestamp(trace_db_session, block_number)
-        if existing_block_timestamp is not None:
-            return existing_block_timestamp
+        existing_block_timestamp, existing_base_fee = _find_block(
+            trace_db_session, block_number
+        )
+        if existing_block_timestamp != 0:
+            return existing_block_timestamp, existing_base_fee
 
-    return await _fetch_block_timestamp(w3, block_number)
+    return await _fetch_block(w3, block_number)
 
 
 async def _find_or_fetch_block_receipts(
@@ -86,24 +86,13 @@ async def _find_or_fetch_block_traces(
     return await _fetch_block_traces(w3, block_number)
 
 
-async def _find_or_fetch_base_fee_per_gas(
-    w3,
-    block_number: int,
-    trace_db_session: Optional[orm.Session],
-) -> int:
-    if trace_db_session is not None:
-        existing_base_fee_per_gas = _find_base_fee_per_gas(
-            trace_db_session, block_number
-        )
-        if existing_base_fee_per_gas is not None:
-            return existing_base_fee_per_gas
-
-    return await fetch_base_fee_per_gas(w3, block_number)
-
-
-async def _fetch_block_timestamp(w3, block_number: int) -> int:
+async def _fetch_block(w3, block_number: int) -> Tuple[int, int]:
     block_json = await w3.eth.get_block(block_number)
-    return block_json["timestamp"]
+    # Need to find proper value for the pre-london hard fork.  (Wont be running very old backfills yet)
+    return (
+        block_json["timestamp"],
+        block_json["baseFeePerGas"] if block_number >= 12_965_000 else 0,
+    )
 
 
 async def _fetch_block_receipts(w3, block_number: int) -> List[Receipt]:
@@ -116,20 +105,24 @@ async def _fetch_block_traces(w3, block_number: int) -> List[Trace]:
     return [Trace(**trace_json) for trace_json in traces_json]
 
 
-def _find_block_timestamp(
+# Find fuctions are still going to be fucked up, need to be fixed before running tracedb
+def _find_block(
     trace_db_session: orm.Session,
     block_number: int,
-) -> Optional[int]:
+) -> Tuple[int, int]:
     result = trace_db_session.execute(
-        "SELECT block_timestamp FROM block_timestamps WHERE block_number = :block_number",
+        "SELECT block_timestamp, base_fee FROM blocks WHERE block_number = :block_number",
         params={"block_number": block_number},
     ).one_or_none()
 
     if result is None:
-        return None
+        return 0, 0
     else:
-        (block_timestamp,) = result
-        return block_timestamp
+        (
+            block_timestamp,
+            base_fee,
+        ) = result
+        return block_timestamp, base_fee
 
 
 def _find_block_traces(
@@ -162,22 +155,6 @@ def _find_block_receipts(
     else:
         (receipts_json,) = result
         return [Receipt(**receipt) for receipt in receipts_json]
-
-
-def _find_base_fee_per_gas(
-    trace_db_session: orm.Session,
-    block_number: int,
-) -> Optional[int]:
-    result = trace_db_session.execute(
-        "SELECT base_fee_in_wei FROM base_fee WHERE block_number = :block_number",
-        params={"block_number": block_number},
-    ).one_or_none()
-
-    if result is None:
-        return None
-    else:
-        (base_fee,) = result
-        return base_fee
 
 
 def _get_miner_address_from_traces(traces: List[Trace]) -> Optional[str]:
